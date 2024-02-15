@@ -15,12 +15,11 @@ while (KeepAlive) {
 		Console.WriteLine("Client Waiting");
 	}
 	byte[] buffer = new byte[1024];
-	int rBytes = client.Receive(buffer); // receive data from client
-	if (rBytes > 0) {
-		Console.WriteLine("Received: " + Encoding.UTF8.GetString(buffer));
-		byte[] res = HandleRequest(buffer);
-		client.Send(res);
-	}
+	SocketFlags flags = SocketFlags.Peek;
+	var rBytes = client.ReceiveAsync(buffer, flags); // receive data from client
+	Console.WriteLine("Received: " + Encoding.UTF8.GetString(buffer));
+	byte[] res = HandleRequest(buffer);
+	client.Send(res);
 }
 
 //Create a function that returns an integer and takes in an array of bytes
