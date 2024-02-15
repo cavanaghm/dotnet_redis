@@ -4,12 +4,10 @@ using System.Text;
 
 TcpListener server = new TcpListener(IPAddress.Any, 6379);
 server.Start();
-server.AcceptSocket(); // wait for client
+Socket client = server.AcceptSocket(); // wait for client
 
-// Accept incoming connection
-TcpClient client = server.AcceptTcpClient();
-NetworkStream stream = client.GetStream();
-byte[] buffer = new byte[client.ReceiveBufferSize];
-int bytesRead = stream.Read(buffer, 0, client.ReceiveBufferSize);
-string dataReceived = Encoding.ASCII.GetString(buffer, 0, bytesRead);
-Console.WriteLine(dataReceived);
+//Create a buffer
+byte[] buffer = new byte[1000];
+client.Receive(buffer); // receive data from client
+Console.WriteLine("Received: " + Encoding.UTF8.GetString(buffer));
+client.Send(Encoding.UTF8.GetBytes("+PONG\r\n")); // send data to client
