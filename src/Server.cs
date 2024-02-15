@@ -1,30 +1,42 @@
+using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
 TcpListener server = new TcpListener(IPAddress.Any, 6379);
 server.Start();
+var pong = Encoding.UTF8.GetBytes("+PONG\r\n");
 
-//Create a buffer
-
-Socket client = server.AcceptSocket(); // wait for client
 Boolean KeepAlive = true;
 
 while (KeepAlive) {
-	if(server.Pending()) {
-		Console.WriteLine("Client Waiting");
-	}
-	byte[] buffer = new byte[1024];
-	SocketFlags flags = SocketFlags.Peek;
-	var rBytes = client.ReceiveAsync(buffer, flags); // receive data from client
-	Console.WriteLine("Received: " + Encoding.UTF8.GetString(buffer));
-	byte[] res = HandleRequest(buffer);
-	client.Send(res);
+	Socket socket = await server.AcceptSocketAsync(); // wait for client
+	var res = ProcessSocket(socket);
 }
 
-//Create a function that returns an integer and takes in an array of bytes
-byte[] HandleRequest(byte[] buffer) {
-	byte[] res = Encoding.UTF8.GetBytes("+PONG\r\n");
-	return res;
-	// return Encoding.UTF8.GetBytes("Error");
+
+
+async Task<string?> ProcessSocket(Socket socket) {
+	using var _ = socket;
+
+	while (true) {
+		var result = await ReceiveAsync(socket);
+		if(result == 0) {
+			return null;
+		}
+		socket.Send(pong);
+	}
+}
+
+async Task<int> ReceiveAsync(Socket socket) {
+	byte[]? buffer = null;
+	try {
+		buffer = ArrayPool<byte>.Shared.Rent(1024);
+		var result = await socket.ReceiveAsync(buffer, SocketFlags.None);
+		return result;
+	} finally {
+		if (buffer != null) {
+			ArrayPool<byte>.Shared.Return(buffer);
+		}
+	}
 }
