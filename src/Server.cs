@@ -26,7 +26,7 @@ async Task ProcessSocket(Socket socket) {
 			continue;
 		}
 
-		HandleCommand(socket, args);
+		await HandleCommand(socket, args);
 	}
 }
 
@@ -47,7 +47,6 @@ async static Task<byte[]> ReceiveAsync(Socket socket) {
 }
 
 async Task HandleCommand(Socket socket, List<string> args) {
-	using var _ = socket;
 	string command = args[0].ToUpper();
 	args.ForEach(arg => Console.Write(arg + " "));
 	Console.WriteLine();
