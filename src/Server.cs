@@ -8,7 +8,8 @@ server.Start();
 byte[] pong = Encoding.UTF8.GetBytes("+PONG\r\n");
 byte[] ping = Encoding.UTF8.GetBytes("*1\r\n$4\r\nping\r\n");
 byte[] ArgCountError(string command) => Encoding.UTF8.GetBytes($"-ERR wrong number of arguments for '{command}' command\r\n");
-// ArgParser(ping, 0);
+Store store = new Store();
+Console.WriteLine("Server started");
 
 while (true) {
 	Socket socket = await server.AcceptSocketAsync(); // wait for client
@@ -68,17 +69,25 @@ async Task HandleCommand(Socket socket, List<string> args) {
 			await socket.SendAsync(Encoding.UTF8.GetBytes("+"+args[1]+"\r\n"), SocketFlags.None);
 			break;
 		case "SET":
-			await socket.SendAsync(pong, SocketFlags.None);
+			store.Set(args[1], args[2]);
+			await socket.SendAsync(Encoding.UTF8.GetBytes("+OK\r\n"), SocketFlags.None);
 			break;
 		case "GET":
-			await socket.SendAsync(pong, SocketFlags.None);
+			var res = store.Get(args[1]);
+			if (res == null) {
+				await socket.SendAsync(Encoding.UTF8.GetBytes("$-1\r\n"), SocketFlags.None);
+				break;
+			}
+			await socket.SendAsync(Encoding.UTF8.GetBytes("+"+res+"\r\n"), SocketFlags.None);
 			break;
 		default:
 			await socket.SendAsync(pong, SocketFlags.None);
 			break;
 	}
 	} catch (Exception e) {
-		Console.WriteLine(e);
+		if (e is SocketException) {
+			Console.WriteLine("SocketException");
+		}
 	} finally {
 		args.Clear();
 	}
@@ -95,12 +104,17 @@ async Task HandleCommand(Socket socket, List<string> args) {
 
 	//Skip \r\n
 	pointer += 2;
+	byte nextByte = input[pointer + count + 2];
+	int next = pointer + count + 2;
+	if (nextByte == 0) {
+		next = -1;
+	}
 
 	switch(type) {
 		case '+':
-			return (Encoding.UTF8.GetString(input, pointer, count), pointer + count + 2);
+			return (Encoding.UTF8.GetString(input, pointer, count), next);
 		case '$':
-			return (Encoding.UTF8.GetString(input, pointer, count), pointer + count + 2);
+			return (Encoding.UTF8.GetString(input, pointer, count), next);
 		case '-':
 			Console.WriteLine("Error");
 			break;
@@ -117,19 +131,15 @@ async Task HandleCommand(Socket socket, List<string> args) {
 }
 
 
-List<string>? ParseRESP(byte[] input) {
+List<string> ParseRESP(byte[] input) {
 	var args = new List<string>();
 	int i = 0;
-	while (i < input.Length) {
+	while (true) {
 		var (res, count) = ArgParser(input, i);
+		args.Add(res);
 		if (count == -1) {
 			return args;
 		}
 		i = count;
-		args.Add(res);
 	}
-	if (args != null) {
-		return args;
-	}
-	return null;
 }
