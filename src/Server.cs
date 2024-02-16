@@ -19,7 +19,7 @@ async Task ProcessSocket(Socket socket) {
 	using var _ = socket;
 
 	while (true) {
-		var result = await ReceiveAsync(socket);
+		var result = await ReceiveAsync(_);
 		var args = ParseRESP(result);
 		if (args == null) {
 			await socket.SendAsync(Encoding.UTF8.GetBytes("-ERR Protocol error\r\n"), SocketFlags.None);
@@ -36,9 +36,6 @@ async static Task<byte[]> ReceiveAsync(Socket socket) {
 		buffer = ArrayPool<byte>.Shared.Rent(256);
 		var result = await socket.ReceiveAsync(buffer, SocketFlags.None);
 		return buffer;
-	} catch (Exception e) {
-		//return empty array
-		return Array.Empty<byte>();
 	} finally {
 		if (buffer != null) {
 			ArrayPool<byte>.Shared.Return(buffer);
