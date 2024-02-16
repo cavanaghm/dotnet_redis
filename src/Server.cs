@@ -26,7 +26,7 @@ async Task ProcessSocket(Socket socket) {
 			continue;
 		}
 
-		await HandleCommand(socket, args);
+		HandleCommand(socket, args);
 	}
 }
 
