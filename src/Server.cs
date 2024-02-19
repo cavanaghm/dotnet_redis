@@ -46,6 +46,7 @@ async static Task<byte[]> ReceiveAsync(Socket socket) {
 
 async Task HandleCommand(Socket socket, List<string> args) {
 	string command = args[0].ToUpper();
+	Console.Write("Command: " );
 	args.ForEach(arg => Console.Write(arg + " "));
 	Console.WriteLine();
 	try {
@@ -101,7 +102,6 @@ SetCommands SetCommandParser(List<string> input) {
 	commands.value = input[2];
 	commands.ttl = 0;
 
-	Console.WriteLine(input.Count);
 	if (input.Count == 5) {
 		switch(input[3].ToUpper()) {
 			case "EX":
@@ -116,10 +116,6 @@ SetCommands SetCommandParser(List<string> input) {
 				break;
 		}
 	}
-
-	Console.WriteLine(commands.key);
-	Console.WriteLine(commands.value);
-	Console.WriteLine(commands.ttl);
 
 	return commands;
 }
