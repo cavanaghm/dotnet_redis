@@ -3,10 +3,18 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
-TcpListener server = new TcpListener(IPAddress.Any, 6379);
+int PORT = 6379;
+if (args.Length > 0) {
+	if (args[0] == "-p" || args[0] == "--port") {
+		PORT = int.Parse(args[1]);
+		Console.WriteLine("Port: " + PORT);
+	}
+}
+TcpListener server = new TcpListener(IPAddress.Any, PORT);
 server.Start();
+
 byte[] pong = Encoding.UTF8.GetBytes("+PONG\r\n");
-byte[] ping = Encoding.UTF8.GetBytes("*1\r\n$4\r\nping\r\n");
+// byte[] ping = Encoding.UTF8.GetBytes("*1\r\n$4\r\nping\r\n");
 byte[] ArgCountError(string command) => Encoding.UTF8.GetBytes($"-ERR wrong number of arguments for '{command}' command\r\n");
 Store store = new Store();
 Console.WriteLine("Server started");
