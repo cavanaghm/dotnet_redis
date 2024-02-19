@@ -69,7 +69,8 @@ async Task HandleCommand(Socket socket, List<string> args) {
 			await socket.SendAsync(Encoding.UTF8.GetBytes("+"+args[1]+"\r\n"), SocketFlags.None);
 			break;
 		case "SET":
-			store.Set(args[1], args[2]);
+			var setArgs = SetCommandParser(args);
+			store.Set(setArgs);
 			await socket.SendAsync(Encoding.UTF8.GetBytes("+OK\r\n"), SocketFlags.None);
 			break;
 		case "GET":
@@ -92,6 +93,35 @@ async Task HandleCommand(Socket socket, List<string> args) {
 		args.Clear();
 	}
 
+}
+
+SetCommands SetCommandParser(List<string> input) {
+	var commands = new SetCommands();
+	commands.key = input[1];
+	commands.value = input[2];
+	commands.ttl = 0;
+
+	Console.WriteLine(input.Count);
+	if (input.Count == 5) {
+		switch(input[3].ToUpper()) {
+			case "EX":
+				commands.ttl = int.Parse(input[4]) * 1000;
+				break;
+			case "PX":
+				Console.WriteLine(input[4]);
+				commands.ttl = int.Parse(input[4]);
+				Console.WriteLine(commands.ttl);
+				break;
+			default:
+				break;
+		}
+	}
+
+	Console.WriteLine(commands.key);
+	Console.WriteLine(commands.value);
+	Console.WriteLine(commands.ttl);
+
+	return commands;
 }
 
 
@@ -142,4 +172,9 @@ List<string> ParseRESP(byte[] input) {
 		}
 		i = count;
 	}
+}
+public struct SetCommands {
+	public string key;
+	public string value;
+	public int ttl;
 }
