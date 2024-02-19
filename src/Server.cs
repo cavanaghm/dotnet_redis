@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -16,82 +15,82 @@ server.Start();
 byte[] pong = Encoding.UTF8.GetBytes("+PONG\r\n");
 // byte[] ping = Encoding.UTF8.GetBytes("*1\r\n$4\r\nping\r\n");
 byte[] ArgCountError(string command) => Encoding.UTF8.GetBytes($"-ERR wrong number of arguments for '{command}' command\r\n");
+var wg = new List<Task>();
 Store store = new Store();
 Console.WriteLine("Server started");
 
 while (true) {
-	Socket socket = await server.AcceptSocketAsync(); // wait for client
-	var res = ProcessSocket(socket);
+	HandleRequest();
 }
 
-async Task ProcessSocket(Socket socket) {
-	using var _ = socket;
+async Task HandleRequest() {
+	var client = await server.AcceptTcpClientAsync();
+	await ProcessClient(client);
+}
 
+
+async Task ProcessClient(TcpClient client) {
+	using var _ = client;
 	while (true) {
-		var result = await ReceiveAsync(_);
+		var result = await ReceiveMessage(client);
 		var args = ParseRESP(result);
 		if (args == null) {
-			await socket.SendAsync(Encoding.UTF8.GetBytes("-ERR Protocol error\r\n"), SocketFlags.None);
+			client.GetStream().Write(Encoding.UTF8.GetBytes("-ERR Protocol error\r\n"));
 			continue;
 		}
 
-		await HandleCommand(socket, args);
+		await HandleCommand(client, args);
 	}
 }
 
-async static Task<byte[]> ReceiveAsync(Socket socket) {
-	byte[]? buffer = null;
-	try {
-		buffer = ArrayPool<byte>.Shared.Rent(256);
-		var result = await socket.ReceiveAsync(buffer, SocketFlags.None);
-		return buffer;
-	} finally {
-		if (buffer != null) {
-			ArrayPool<byte>.Shared.Return(buffer);
-		}
-	}
+async Task<byte[]> ReceiveMessage(TcpClient socket) {
+	var buffer = new byte[1024];
+	var result = await socket.GetStream().ReadAsync(buffer, 0, buffer.Length);
+
+	return buffer;
 }
 
-async Task HandleCommand(Socket socket, List<string> args) {
+async Task HandleCommand(TcpClient client, List<string> args) {
 	string command = args[0].ToUpper();
-	Console.Write("Command: " );
-	args.ForEach(arg => Console.Write(arg + " "));
-	Console.WriteLine();
+	var stream = client.GetStream();
+	// Console.Write("Command: " );
+	// args.ForEach(arg => Console.Write(arg + " "));
+	// Console.WriteLine();
 	try {
 	switch(command) {
 		case "PING":
 			if (args.Count > 2) {
-				await socket.SendAsync(ArgCountError(command), SocketFlags.None);
+				await stream.WriteAsync(ArgCountError(command));
 				break;
 			}
 			if (args.Count == 2) {
-				await socket.SendAsync(Encoding.UTF8.GetBytes("+"+args[1]+"\r\n"), SocketFlags.None);
+				await stream.WriteAsync(Encoding.UTF8.GetBytes("+"+args[1]+"\r\n"));
 				break;
 			}
-			await socket.SendAsync(pong, SocketFlags.None);
+			await stream.WriteAsync(pong);
 			break;
 		case "ECHO":
 			if (args.Count != 2) {
-				await socket.SendAsync(ArgCountError(command), SocketFlags.None);
+				await stream.WriteAsync(ArgCountError(command));
 				break;
 			}
-			await socket.SendAsync(Encoding.UTF8.GetBytes("+"+args[1]+"\r\n"), SocketFlags.None);
+			await stream.WriteAsync(Encoding.UTF8.GetBytes("+"+args[1]+"\r\n"));
 			break;
 		case "SET":
 			var setArgs = SetCommandParser(args);
 			store.Set(setArgs);
-			await socket.SendAsync(Encoding.UTF8.GetBytes("+OK\r\n"), SocketFlags.None);
+			await stream.WriteAsync(Encoding.UTF8.GetBytes("+OK\r\n"));
 			break;
 		case "GET":
 			var res = store.Get(args[1]);
 			if (res == null) {
-				await socket.SendAsync(Encoding.UTF8.GetBytes("$-1\r\n"), SocketFlags.None);
+				await stream.WriteAsync(Encoding.UTF8.GetBytes("$-1\r\n"));
 				break;
 			}
-			await socket.SendAsync(Encoding.UTF8.GetBytes("+"+res+"\r\n"), SocketFlags.None);
+			await stream.WriteAsync(Encoding.UTF8.GetBytes("+"+res+"\r\n"));
 			break;
 		default:
-			await socket.SendAsync(pong, SocketFlags.None);
+			await stream.WriteAsync(pong);
 			break;
 	}
 	} catch (Exception e) {
@@ -116,9 +115,7 @@ SetCommands SetCommandParser(List<string> input) {
 				commands.ttl = int.Parse(input[4]) * 1000;
 				break;
 			case "PX":
-				Console.WriteLine(input[4]);
 				commands.ttl = int.Parse(input[4]);
-				Console.WriteLine(commands.ttl);
 				break;
 			default:
 				break;
